@@ -18,7 +18,6 @@ jobs:
         --format sarif
         --output DependenciesAnalysisFull.sarif
         ./
-    continue-on-error: true
 
   semgrep:
     name: run semgrep
