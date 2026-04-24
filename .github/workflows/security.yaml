@@ -13,7 +13,7 @@ permissions:
  contents: read
 
 name: run osv-scanner
-  uses: google/osv-scanner-action/osv-scanner-action@<SHA256>
+  uses: google/osv-scanner-action/osv-scanner-action@1f1242919d8a60496dd1874b24b62b2370ed4c78
   with:
     scan-args: |-
       --format sarif
@@ -23,4 +23,4 @@ name: run osv-scanner
 
 runs-on: ubuntu-latest
 container:
- image: returntocorp/semgrep@<HASH>
+ image: returntocorp/semgrep@fcd5ab7459e8d91cb1777481980d1b18b4fc6735
