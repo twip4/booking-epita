@@ -1,0 +1,79 @@
+name: security - pull request
+
+on:
+  pull_request:
+
+permissions:
+  actions: read
+  security-events: write
+  contents: read
+
+jobs:
+  dependencies-analysis:
+    name: dependencies analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: run osv-scanner after PR
+        uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5
+        with:
+          scan-args: |-
+            --format sarif
+            --output after-pr.sarif
+            ./
+        continue-on-error: true
+
+      - name: checkout baseline commit
+        run: |
+          git checkout ${{ github.event.pull_request.base.sha }}
+
+      - name: run osv-scanner before PR
+        uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5
+        with:
+          scan-args: |-
+            --format sarif
+            --output before-pr.sarif
+            ./
+        continue-on-error: true
+
+      - name: compare analysis
+        uses: google/osv-scanner-action/osv-reporter-action@c51854704019a247608d928f370c98740469d4b5
+        with:
+          scan-args: |-
+            --new after-pr.sarif
+            --old before-pr.sarif
+            --output DependenciesAnalysisDiff.sarif
+        continue-on-error: true
+
+      - name: save differential report as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DependenciesAnalysisDiff
+          path: DependenciesAnalysisDiff.sarif
+
+  source-code-analysis:
+    name: source code analysis
+    runs-on: ubuntu-latest
+    container:
+      image: returntocorp/semgrep@sha256:aba64aaf601ff71b769b082d3c9f95cb02a2bb20a6404f42ae94f240aec6ace7
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: run semgrep differential analysis
+        run: |
+          semgrep ci \
+            --config .semgrep \
+            --baseline-commit ${{ github.event.pull_request.base.sha }} \
+            --sarif \
+            --output SemgrepAnalysisDiff.sarif
+        continue-on-error: true
+
+      - name: save differential report as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SemgrepAnalysisDiff
+          path: SemgrepAnalysisDiff.sarif
