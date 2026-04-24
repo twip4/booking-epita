@@ -1,26 +1,50 @@
----
 name: security
 
 on:
   workflow_dispatch:
 
 permissions:
+  # Required to upload SARIF file to CodeQL.
   actions: read
+  # Require writing security events to upload SARIF file
   security-events: write
+  # to fetch code (actions/checkout)
   contents: read
 
 jobs:
-  osv-scanner:
+  dependencies-analysis:
     name: run osv-scanner
-    uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5
-    with:
-      scan-args: |-
-        --format sarif
-        --output DependenciesAnalysisFull.sarif
-        ./
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: run osv-scanner
+        uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5
+        with:
+          scan-args: |-
+            --format sarif
+            --output DependenciesAnalysisFull.sarif
+            ./
+        continue-on-error: true
+
+      - name: upload sarif to security dashboard
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: DependenciesAnalysisFull.sarif
 
   semgrep:
     name: run semgrep
     runs-on: ubuntu-latest
     container:
       image: returntocorp/semgrep@sha256:aba64aaf601ff71b769b082d3c9f95cb02a2bb20a6404f42ae94f240aec6ace7
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: run semgrep
+        run: semgrep ci --config .semgrep --sarif --output SemgrepAnalysis.sarif
+        continue-on-error: true
+
+      - name: upload sarif to security dashboard
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: SemgrepAnalysis.sarif
